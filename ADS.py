@@ -15,13 +15,13 @@ class ADS:
 
     FINGERPRINT_CONFIG = {
         "fingerprint_config": {
-            "browser_kernel_config": {"version": "112", "type": "chrome"},
             "automatic_timezone": "1",
-            "language_switch": "0",
-            "language": ["en-US", "en", "zh-CN", "zh"],
+            "language_switch": "1",
+            "language": ["zh-CN", "zh"],
             "scan_port_type": "1",
-            "screen_resolution": "300_1400",
-            "country": "cn"
+            # "screen_resolution": "300_1400",
+            "country": "cn",
+            "media_devices": "1"
         }
     }
 
@@ -37,9 +37,9 @@ class ADS:
     @staticmethod
     def generate_fingerprint_config():
         res = ADS.FINGERPRINT_CONFIG
-        width = random.randint(27, 33) * 10
-        height = random.randint(57, 63) * 10
-        res['fingerprint_config']['screen_resolution'] = str(width) + "_" + str(height)
+        # width = random.randint(47, 53) * 10
+        # height = random.randint(87, 93) * 10
+        # res['fingerprint_config']['screen_resolution'] = str(width) + "_" + str(height)
 
         return res
 
@@ -165,6 +165,8 @@ class ADS:
             "user_proxy_config": proxy_config["user_proxy_config"]
         }
 
+        print(body)
+
         ADS.wait_until_available()
         response = requests.request("POST", url, json=body, headers=ADS.JSON_HEADERS)
 
@@ -202,7 +204,7 @@ class ADS:
 
     @staticmethod
     def start_browser(profile_id):
-        url = ADS.API_URL + f"browser/start?user_id={profile_id}"
+        url = ADS.API_URL + f"browser/start?user_id={profile_id}&clear_cache_after_closing=1"
 
         ADS.wait_until_available()
         response = requests.request("GET", url)
@@ -233,3 +235,44 @@ class ADS:
             print(f"Check browser status {profile_id} response: ", response.text)
 
         return response.json()['data']['status']
+
+    @staticmethod
+    def update_profile_proxy(profile_id, proxy):
+        url = ADS.API_URL + "user/update"
+
+        proxy_split = proxy.split(":")
+
+        proxy_config = ADS.NO_PROXY_CONFIG
+        if len(proxy_split) == 5:
+            proxy_config = {
+                "user_proxy_config": {
+                    "proxy_type": proxy_split[0],
+                    "proxy_host": proxy_split[1],
+                    "proxy_port": proxy_split[2],
+                    "proxy_user": proxy_split[3],
+                    "proxy_password": proxy_split[4],
+                    "proxy_soft": "other"
+                }
+            }
+        if len(proxy_split) == 3:
+            proxy_config = {
+                "user_proxy_config": {
+                    "proxy_type": proxy_split[0],
+                    "proxy_host": proxy_split[1],
+                    "proxy_port": proxy_split[2],
+                    "proxy_soft": "other"
+                }
+            }
+
+        body = {
+            "user_id": profile_id,
+            "user_proxy_config": proxy_config["user_proxy_config"]
+        }
+        print(body)
+
+        ADS.wait_until_available()
+        response = requests.request("POST", url, json=body, headers=ADS.JSON_HEADERS)
+
+        if ADS.DEBUG:
+            print(f"Update profile proxy {profile_id} response: ", response.text)
+

@@ -1,5 +1,6 @@
 import builtins
 import random
+import threading
 import time
 import requests
 
@@ -67,7 +68,9 @@ class Browser:
             self.busy = False
 
             return res
-        except:
+        except Exception as e:
+            self.busy = False
+            print(e)
             return -1
 
     def make_page_available(self):
@@ -322,40 +325,66 @@ class Browser:
         else:
             return False
 
+    def update_proxy(self, proxy):
+        self.busy = True
+
+        ADS.update_profile_proxy(profile_id=self.profile_id, proxy=proxy)
+        ADS.stop_browser(self.profile_id)
+        self.start()
+
+        self.busy = False
+
 
 class ParserApp:
     def __init__(self):
-        self.task_queue = queue.PriorityQueue()
         self.browsers = list()
+        self.get_proxy_url = ""
         self.proxy_list = list()
 
-    def start(self, number_of_profiles=1, proxy_list=tuple()):
-        self.proxy_list = proxy_list
+    def update_proxies(self):
+        while True:
+            time_to_wait = 120
+
+            response = "http:" + requests.request("GET", self.get_proxy_url).text
+
+            for proxy in list(map(lambda proxy_host_port: "http:" + proxy_host_port, response.split())):
+                self.proxy_list.append(proxy)
+
+            print(self.proxy_list)
+
+            for i, browser in enumerate(self.browsers):
+                while browser.busy:
+                    print(f"Waiting while browser {i} busy")
+                    time.sleep(5)
+                    time_to_wait -= 5
+
+                print(f"Updating browser {i} proxy")
+                browser.update_proxy(self.proxy_list.pop())
+
+            time_to_wait = max(time_to_wait, 1)
+            time.sleep(time_to_wait)
+
+    def start(self, get_proxy_url, number_of_profiles=1):
+        self.get_proxy_url = get_proxy_url
+
         ADS.clear_all_profiles()
 
-        if len(proxy_list) != 0:
-            assert len(proxy_list) == number_of_profiles
-
-            for i in range(number_of_profiles):
-                ADS.create_profile(proxy=proxy_list[i])
-        else:
-            for _ in range(number_of_profiles):
-                ADS.create_profile()
+        for _ in range(number_of_profiles):
+            ADS.create_profile()
 
         profile_ids = list(map(lambda profile: profile['user_id'], ADS.list_all_profiles()))
 
         for profile_id in profile_ids:
             self.browsers.append(Browser(profile_id))
 
-        for browser in self.browsers:
-            browser.start()
+        threading.Thread(target=self.update_proxies).start()
 
     def recreate_browser(self, browser_index):
         ADS.stop_browser(self.browsers[browser_index].profile_id)
         ADS.delete_profile(self.browsers[browser_index].profile_id)
 
         if len(self.proxy_list) != 0:
-            ADS.create_profile(proxy=self.proxy_list[browser_index])
+            ADS.create_profile(proxy=self.proxy_list.pop())
         else:
             ADS.create_profile()
 
@@ -368,6 +397,7 @@ class ParserApp:
                 res = self.browsers[i].parse_product_page_full(url, only_prices)
 
                 while res == -1:
+                    print(f"Recreating browser {i}")
                     self.recreate_browser(i)
                     res = self.browsers[i].parse_product_page_full(url, only_prices)
 
