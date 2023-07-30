@@ -70,17 +70,18 @@ class Browser:
             return res
         except Exception as e:
             self.busy = False
+            print("Exception while parsing page")
             print(e)
             return -1
 
     def make_page_available(self):
-        cnt = 5
+        cnt = 10
         while True:
             if self.check_page_available():
                 break
 
             try:
-                WebDriverWait(self.driver, 2).until(
+                WebDriverWait(self.driver, 4).until(
                     EC.presence_of_element_located((By.ID, "rotateImg"))
                 )
             except:
@@ -99,6 +100,7 @@ class Browser:
             if not self.check_page_available():
                 print("Reloading")
                 self.driver.refresh()
+                time.sleep(5)
             else:
                 print("Captcha has been passed successfully")
                 break
@@ -154,12 +156,12 @@ class Browser:
             title = titles[k].get_attribute('textContent')
         res[title] = dict()
 
-        for item_wrap in list_wraps[k].find_elements(By.CLASS_NAME, 'item-wrap'):
+        for i, item_wrap in enumerate(list_wraps[k].find_elements(By.CLASS_NAME, 'item-wrap')):
             self.driver.execute_script("arguments[0].scrollIntoView();", item_wrap)
             item_wrap.click()
 
             # region item_wrap_text (Text on button)
-            item_wrap_text = ""
+            item_wrap_text = str(i)
 
             for possible_item_wrap_text_class in ['text', 'property-text']:
                 item_wrap_text_elements = item_wrap.find_elements(By.CLASS_NAME, possible_item_wrap_text_class)
@@ -212,26 +214,34 @@ class Browser:
         return res
 
     def parse_size_table(self):
-        size_table = self.driver.find_elements(By.CLASS_NAME, "size-report-info-box")
+        size_tables = self.driver.find_elements(By.CLASS_NAME, "size-report-view")
 
-        if len(size_table) == 0:
+        if len(size_tables) == 0:
             print("Product has no size table")
             return dict()
 
-        size_table = size_table[0]
-
         res = dict()
 
-        columns = size_table.find_elements(By.CLASS_NAME, "size-report-info")
+        for i, size_table in enumerate(size_tables):
+            title = size_table.find_elements(By.CLASS_NAME, "size-title")
 
-        for column in columns:
-            cells = column.find_elements(By.CLASS_NAME, "size-key")
+            if len(title) == 0:
+                title = str(i)
+            else:
+                title = title[0].get_attribute('textContent')
 
-            key = cells[0].get_attribute('textContent')
-            res[key] = list()
+            res[title] = dict()
 
-            for cell in cells[1:]:
-                res[key].append(cell.get_attribute('textContent'))
+            columns = size_table.find_elements(By.CLASS_NAME, "size-report-info")
+
+            for column in columns:
+                cells = column.find_elements(By.CLASS_NAME, "size-key")
+
+                key = cells[0].get_attribute('textContent')
+                res[title][key] = list()
+
+                for cell in cells[1:]:
+                    res[title][key].append(cell.get_attribute('textContent'))
 
         return res
 
@@ -304,15 +314,26 @@ class Browser:
         points.append(0)
         sleep = list()
 
-        for i in range(16):
-            points.append(random.randint(total // 15 * i, total // 15 * i + total // 15))
-            actions.move_by_offset(points[-1] - points[-2], random.randint(-5, 5))
+        for i in range(10):
+            offset_y = random.choices(population=[0, 1, 2], weights=[10, 75, 15], k=1)[0]
+
+            points.append(random.randint(total // 9 * i, total // 9 * i + total // 9))
+            actions.move_by_offset(points[-1] - points[-2], offset_y)
 
             time.sleep(random.randint(0, 1) * 0.001)
 
+        for i in range(5):
+            offset_y = random.choices(population=[-1, 0, 1, 2], weights=[10, 10, 40, 40], k=1)[0]
+            offset_x = random.randint(-3, -2)
+
+            points.append(points[-1] + offset_x)
+            actions.move_by_offset(points[-1] - points[-2], offset_y)
+
+            time.sleep(random.randint(0, 1) * 0.002)
+
         temp = int(total > points[-1]) * 2 - 1
         for i in range(abs(points[-1] - total)):
-            actions.move_by_offset(1 * temp, random.randint(-5, 5))
+            actions.move_by_offset(1 * temp, random.randint(-2, 2))
             time.sleep(random.randint(0, 1) * 0.001)
         # endregion
 
@@ -345,7 +366,7 @@ class ParserApp:
         while True:
             time_to_wait = 120
 
-            response = "http:" + requests.request("GET", self.get_proxy_url).text
+            response = requests.request("GET", self.get_proxy_url).text
 
             for proxy in list(map(lambda proxy_host_port: "http:" + proxy_host_port, response.split())):
                 self.proxy_list.append(proxy)
@@ -376,6 +397,9 @@ class ParserApp:
 
         for profile_id in profile_ids:
             self.browsers.append(Browser(profile_id))
+
+        # for browser in self.browsers:
+        #     browser.start()
 
         threading.Thread(target=self.update_proxies).start()
 

@@ -26,7 +26,7 @@ def parse_product_page():
 if __name__ == '__main__':
     parser_app = ParserApp()
 
-    get_proxy_url = "http://proxy.siyetian.com/apis_get.html?token=AesJWLNRUSx8ERJdXTq10dOpXS45keVRTTn1STqFUeNpXQz0EVrNjTU10dNpWWx0keFJzTUVUM.AOxEzN4gTO4YTM&limit=10&type=0&time=&split=2&split_text=&repeat=0&isp=0"
-    parser_app.start(number_of_profiles=5, get_proxy_url=get_proxy_url)
+    get_proxy_url = "https://share.proxy.qg.net/pool?key=442E4E11&num=2&area=&isp=&format=txt&seq=%5Cn&distinct=true&pool=1"
+    parser_app.start(number_of_profiles=1, get_proxy_url=get_proxy_url)
 
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

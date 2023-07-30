@@ -21,7 +21,11 @@ class ADS:
             "scan_port_type": "1",
             # "screen_resolution": "300_1400",
             "country": "cn",
-            "media_devices": "1"
+            "webgl": "3",
+            "webrtc": "proxy",
+            "audio": "0",
+            "media_devices": "0",
+            # "random_ua": {"ua_system_version": ["Android 9", "Android 10", "Android 11", "Android 12", "Android 13"]}
         }
     }
 
@@ -37,9 +41,9 @@ class ADS:
     @staticmethod
     def generate_fingerprint_config():
         res = ADS.FINGERPRINT_CONFIG
-        # width = random.randint(47, 53) * 10
-        # height = random.randint(87, 93) * 10
-        # res['fingerprint_config']['screen_resolution'] = str(width) + "_" + str(height)
+        width = random.randint(47, 53) * 10
+        height = random.randint(87, 93) * 10
+        res['fingerprint_config']['screen_resolution'] = str(width) + "_" + str(height)
 
         return res
 
@@ -204,7 +208,7 @@ class ADS:
 
     @staticmethod
     def start_browser(profile_id):
-        url = ADS.API_URL + f"browser/start?user_id={profile_id}&clear_cache_after_closing=1"
+        url = ADS.API_URL + f'browser/start?user_id={profile_id}&clear_cache_after_closing=1&launch_args=["--disable-notifications"]'
 
         ADS.wait_until_available()
         response = requests.request("GET", url)
