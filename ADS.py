@@ -8,8 +8,8 @@ import requests
 class ADS:
     DEBUG = True
 
-    STATUS_URL = "http://localhost:50325/status"
-    API_URL = "http://localhost:50325/api/v1/"
+    STATUS_URL = "http://localhost:50326/status"
+    API_URL = "http://localhost:50326/api/v1/"
 
     ERR_TOO_MANY_REQUESTS = "Too many request per second, please check"
 
