@@ -40,7 +40,7 @@ class Browser:
         self.driver = webdriver.Chrome(service=webdriver_service, options=chrome_options)
 
     def check_page_available(self):
-        time.sleep(1)
+        time.sleep(2)
         info = self.driver.find_elements(By.CLASS_NAME, 'spuBase_detail')
 
         return len(info) > 0
@@ -58,9 +58,11 @@ class Browser:
             res = dict()
 
             if not only_prices:
-                res['size_table'] = self.parse_size_table()
-                res['params'] = self.parse_params_table()
-                res['description'] = self.parse_description()
+                html_content = self.driver.page_source
+
+                res['size_table'] = self.parse_size_tables(html_content)
+                res['params'] = self.parse_params_table(html_content)
+                res['description'] = self.parse_description(html_content)
 
             res['prices'] = self.parse_price_table()
             res['parse_time'] = str(round(time.time() - start_time, 2))
@@ -107,23 +109,24 @@ class Browser:
 
         return 0
 
-    def parse_description(self):
-        description = self.driver.find_elements(By.CLASS_NAME, 'imageAndText-content_info')
+    def parse_description(self, html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
 
-        if len(description) == 0:
+        description = soup.select_one('.imageAndText-content_info')
+
+        if not description:
             print("Product has no description")
             return ""
 
-        description = description[0]
-        return description.get_attribute('textContent')
+        return description.get_text()
 
     def parse_price_table(self):
-        WebDriverWait(self.driver, 2).until(
-            EC.presence_of_all_elements_located((By.CLASS_NAME, 'payButton-content')))
-        WebDriverWait(self.driver, 2).until(
-            EC.element_to_be_clickable((By.CLASS_NAME, 'payButton-content')))
+        price_button = self.driver.find_elements(By.CLASS_NAME, 'payButton-content')
 
-        price_button = self.driver.find_element(By.CLASS_NAME, 'payButton-content')
+        if len(price_button) == 0:
+            return
+        price_button = price_button[0]
+
         price_button.click()
 
         # region Close popup
@@ -200,48 +203,50 @@ class Browser:
 
         return res
 
-    def parse_params_table(self):
-        res = dict()
+    def parse_params_table(self, html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        res = {}
 
-        params = self.driver.find_elements(By.CLASS_NAME, "baseProperty-content_info")
+        params = soup.select('.baseProperty-content_info')
 
         for param in params:
-            title = param.find_element(By.CLASS_NAME, "content-title").get_attribute('textContent')
-            value = param.find_element(By.CLASS_NAME, "content-info").get_attribute('textContent')
+            title = param.select_one('.content-title').get_text()
+            value = param.select_one('.content-info').get_text()
 
             res[title] = value
 
         return res
 
-    def parse_size_table(self):
-        size_tables = self.driver.find_elements(By.CLASS_NAME, "size-report-view")
+    def parse_size_tables(self, html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        res = {}
 
-        if len(size_tables) == 0:
+        size_tables = soup.select('.size-report-view')
+
+        if not size_tables:
             print("Product has no size table")
-            return dict()
-
-        res = dict()
+            return res
 
         for i, size_table in enumerate(size_tables):
-            title = size_table.find_elements(By.CLASS_NAME, "size-title")
+            title_element = size_table.select_one('.size-title')
 
-            if len(title) == 0:
+            if not title_element:
                 title = str(i)
             else:
-                title = title[0].get_attribute('textContent')
+                title = title_element.get_text()
 
-            res[title] = dict()
+            res[title] = {}
 
-            columns = size_table.find_elements(By.CLASS_NAME, "size-report-info")
+            columns = size_table.select('.size-report-info')
 
             for column in columns:
-                cells = column.find_elements(By.CLASS_NAME, "size-key")
+                cells = column.select('.size-key')
 
-                key = cells[0].get_attribute('textContent')
-                res[title][key] = list()
+                key = cells[0].get_text()
+                res[title][key] = []
 
                 for cell in cells[1:]:
-                    res[title][key].append(cell.get_attribute('textContent'))
+                    res[title][key].append(cell.get_text())
 
         return res
 
@@ -385,23 +390,26 @@ class ParserApp:
             time_to_wait = max(time_to_wait, 1)
             time.sleep(time_to_wait)
 
-    def start(self, get_proxy_url, number_of_profiles=1):
-        self.get_proxy_url = get_proxy_url
+    def start(self, number_of_profiles=1, proxy_list=tuple()):
+        # self.get_proxy_url = get_proxy_url
 
         ADS.clear_all_profiles()
 
-        for _ in range(number_of_profiles):
-            ADS.create_profile()
+        for i in range(number_of_profiles):
+            if len(proxy_list) >= number_of_profiles:
+                ADS.create_profile(proxy_list[i])
+            else:
+                ADS.create_profile()
 
         profile_ids = list(map(lambda profile: profile['user_id'], ADS.list_all_profiles()))
 
         for profile_id in profile_ids:
             self.browsers.append(Browser(profile_id))
 
-        # for browser in self.browsers:
-        #     browser.start()
+        for browser in self.browsers:
+            browser.start()
 
-        threading.Thread(target=self.update_proxies).start()
+        # threading.Thread(target=self.update_proxies).start()
 
     def recreate_browser(self, browser_index):
         ADS.stop_browser(self.browsers[browser_index].profile_id)

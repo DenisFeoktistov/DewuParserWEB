@@ -26,7 +26,6 @@ def parse_product_page():
 if __name__ == '__main__':
     parser_app = ParserApp()
 
-    get_proxy_url = "https://share.proxy.qg.net/pool?key=442E4E11&num=2&area=&isp=&format=txt&seq=%5Cn&distinct=true&pool=1"
-    parser_app.start(number_of_profiles=1, get_proxy_url=get_proxy_url)
+    parser_app.start(number_of_profiles=1, proxy_list=["101.91.114.42:37634:EE244126:562F824E3199"])
 
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
