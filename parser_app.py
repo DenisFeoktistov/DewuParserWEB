@@ -80,3 +80,13 @@ class ParserApp:
                 return res
 
         return -1
+
+    def parse_product_page_full_temp(self, url, only_prices, i):
+        res = self.browsers[i].parse_product_page_full(url, only_prices)
+
+        while res == -1:
+            print(f"Recreating browser {i}")
+            self.recreate_browser(i)
+            res = self.browsers[i].parse_product_page_full(url, only_prices)
+
+        return res

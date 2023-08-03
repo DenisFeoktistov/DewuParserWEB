@@ -74,13 +74,13 @@ class Browser:
             return -1
 
     def make_page_available(self):
-        cnt = 10
+        cnt = 5
         while True:
             if self.check_page_available():
                 break
 
             try:
-                WebDriverWait(self.driver, 4).until(
+                WebDriverWait(self.driver, 6).until(
                     EC.presence_of_element_located((By.ID, "rotateImg"))
                 )
             except:
