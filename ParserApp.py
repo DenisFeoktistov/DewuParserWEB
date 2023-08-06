@@ -36,6 +36,7 @@ class ParserApp:
 
     def start(self, number_of_profiles=1, proxy_list=tuple()):
         # self.get_proxy_url = get_proxy_url
+        self.proxy_list = proxy_list
 
         ADS.clear_all_profiles()
 
@@ -60,7 +61,7 @@ class ParserApp:
         ADS.delete_profile(self.browsers[browser_index].profile_id)
 
         if len(self.proxy_list) != 0:
-            ADS.create_profile(proxy=self.proxy_list.pop())
+            ADS.create_profile(proxy=self.proxy_list[browser_index])
         else:
             ADS.create_profile()
 

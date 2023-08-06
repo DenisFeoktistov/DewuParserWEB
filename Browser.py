@@ -1,3 +1,4 @@
+import json
 import random
 
 import time
@@ -59,14 +60,14 @@ class Browser:
 
                 res['size_table'] = self.parse_size_tables(html_content)
                 res['params'] = self.parse_params_table(html_content)
-                res['description'] = self.parse_description(html_content)
+                res['descriptions'] = self.parse_descriptions(html_content)
 
             res['prices'] = self.parse_price_table()
             res['parse_time'] = str(round(time.time() - start_time, 2))
 
             self.busy = False
 
-            return res
+            return json.dumps(res)
         except Exception as e:
             self.busy = False
             print("Exception while parsing page")
@@ -106,16 +107,16 @@ class Browser:
 
         return 0
 
-    def parse_description(self, html_content):
+    def parse_descriptions(self, html_content):
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        description = soup.select_one('.imageAndText-content_info')
+        descriptions = soup.select('.imageAndText-content_info')
 
-        if not description:
+        if not descriptions:
             print("Product has no description")
-            return ""
+            return []
 
-        return description.get_text()
+        return [description.get_text() for description in descriptions]
 
     def parse_price_table(self):
         price_button = self.driver.find_elements(By.CLASS_NAME, 'payButton-content')
@@ -185,6 +186,7 @@ class Browser:
                         buy_button_info['delivery_info'], "")
                     buy_button_info['additional_info'] = buy_button.find_element(
                         By.CLASS_NAME, 'tradeTypeBox').get_attribute('textContent')
+                    buy_button_info['current_url'] = self.driver.current_url
 
                     price_without_discount = buy_button.find_elements(By.CLASS_NAME, 'del-price')
 
