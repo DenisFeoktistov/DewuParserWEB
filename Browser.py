@@ -1,3 +1,4 @@
+import itertools
 import json
 import random
 
@@ -38,10 +39,14 @@ class Browser:
         self.driver = webdriver.Chrome(service=webdriver_service, options=chrome_options)
 
     def check_page_available(self):
-        time.sleep(2)
         info = self.driver.find_elements(By.CLASS_NAME, 'spuBase_detail')
 
         return len(info) > 0
+
+    def check_captcha(self):
+        captcha = self.driver.find_elements(By.ID, "rotateImg")
+
+        return len(captcha) > 0
 
     def parse_product_page_full(self, url, only_prices):
         try:
@@ -76,34 +81,36 @@ class Browser:
 
     def make_page_available(self):
         cnt = 5
+
         while True:
-            if self.check_page_available():
+            is_available = False
+            captcha_on_a_page = False
+
+            for i in range(20):
+                if self.check_page_available():
+                    is_available = True
+                    break
+
+                if self.check_captcha():
+                    captcha_on_a_page = True
+                    break
+
+                time.sleep(0.2)
+
+            if is_available:
                 break
 
-            try:
-                WebDriverWait(self.driver, 6).until(
-                    EC.presence_of_element_located((By.ID, "rotateImg"))
-                )
-            except:
-                cnt -= 1
-
-                if cnt == 0:
-                    return -1
-
-                print("Reloading")
-                self.driver.refresh()
+            if captcha_on_a_page:
+                self.solve_captcha(self.driver.page_source)
+                time.sleep(7)
                 continue
 
-            self.solve_captcha(self.driver.page_source)
-            time.sleep(5)
+            print("Reloading")
+            self.driver.refresh()
+            cnt -= 1
 
-            if not self.check_page_available():
-                print("Reloading")
-                self.driver.refresh()
-                time.sleep(5)
-            else:
-                print("Captcha has been passed successfully")
-                break
+            if cnt == 0:
+                return -1
 
         return 0
 
@@ -143,8 +150,92 @@ class Browser:
 
         select_container = self.driver.find_element(By.CLASS_NAME, 'select-container')
 
-        return self.recursive_parse_prices(select_popup=select_popup, header_info=header_info,
-                                           select_container=select_container)
+        return self.non_recursive_parse_prices(select_popup=select_popup, header_info=header_info,
+                                               select_container=select_container)
+
+    def non_recursive_parse_prices(self, select_popup, header_info, select_container):
+        res = dict()
+
+        select_container_html = select_container.get_attribute('innerHTML')
+        soup = BeautifulSoup(select_container_html, 'html.parser')
+
+        titles = [title.get_text() for title in soup.find_all(class_='title')]
+        if not titles:
+            titles = [""]
+
+        list_wraps = select_container.find_elements(By.CLASS_NAME, 'list-wrap')
+        item_wraps = [list_wrap.find_elements(By.CLASS_NAME, 'item-wrap') for list_wrap in list_wraps]
+
+        item_wraps_texts = [
+            [item_wrap for item_wrap in list_wrap.find_all(class_='item-wrap')] for
+            list_wrap
+            in soup.find_all(class_='list-wrap')]
+
+        item_wraps_texts = [[item_wrap if item_wrap else "" for item_wrap in row] for row in
+                            item_wraps_texts]
+
+        for i in range(len(item_wraps_texts)):
+            for j in range(len(item_wraps_texts[i])):
+                item_wrap = item_wraps_texts[i][j]
+
+                if item_wrap.find(class_='text'):
+                    item_wraps_texts[i][j] = item_wrap.find(class_='text').get_text()
+                elif item_wrap.find(class_='property-text'):
+                    item_wraps_texts[i][j] = item_wrap.find(class_='property-text').get_text()
+                else:
+                    item_wraps_texts[i][j] = ""
+
+        n = len(list_wraps)
+        ranges = [range(len(list_wrap)) for list_wrap in item_wraps]
+
+        last_comb = [-1 for _ in list_wraps]
+        all_combinations = itertools.product(*ranges)
+
+        res["configurations"] = dict()
+
+        for i in range(len(titles)):
+            res["configurations"][titles[i]] = item_wraps_texts[i]
+
+        res["units"] = list()
+
+        for combination in all_combinations:
+            for i in range(n):
+                if combination[i] != last_comb[i]:
+                    self.driver.execute_script("arguments[0].scrollIntoView();", item_wraps[i][combination[i]])
+                    item_wraps[i][combination[i]].click()
+
+            res2 = dict()
+            res2["buy_buttons"] = list()
+            res2["header"] = header_info.get_attribute('textContent')
+            res2["current_url"] = self.driver.current_url
+            res2["current_configuration"] = dict()
+
+            for i in range(n):
+                res2["current_configuration"][titles[i]] = item_wraps_texts[i][combination[i]]
+
+            for buy_button in select_popup.find_elements(By.CLASS_NAME, 'button-view'):
+                buy_button_info = dict()
+
+                buy_button_info['delivery_info'] = buy_button.find_element(
+                    By.CLASS_NAME, 'button-right').get_attribute('textContent')
+                buy_button_info['price'] = buy_button.find_element(
+                    By.CLASS_NAME, 'price').get_attribute('textContent').replace(
+                    buy_button_info['delivery_info'], "")
+                buy_button_info['additional_info'] = buy_button.find_element(
+                    By.CLASS_NAME, 'tradeTypeBox').get_attribute('textContent')
+
+                price_without_discount = buy_button.find_elements(By.CLASS_NAME, 'del-price')
+
+                if len(price_without_discount) != 0:
+                    buy_button_info['price_without_discount'] = price_without_discount[0].get_attribute(
+                        'textContent')
+
+                res2["buy_buttons"].append(buy_button_info)
+
+            res["units"].append(res2)
+            last_comb = combination
+
+        return res
 
     def recursive_parse_prices(self, select_popup, header_info, select_container, k=0):
         res = dict()
@@ -198,7 +289,7 @@ class Browser:
             else:
                 res[title][item_wrap_text] = self.recursive_parse_prices(
                     select_popup=select_popup, header_info=header_info,
-                    select_container=select_container, k=k + 1)
+                    select_container=select_container)
 
         return res
 
