@@ -42,7 +42,7 @@ class ADS:
     def generate_fingerprint_config():
         res = ADS.FINGERPRINT_CONFIG
         width = random.randint(47, 53) * 10
-        height = random.randint(87, 93) * 10
+        height = random.randint(85, 95) * 10
         res['fingerprint_config']['screen_resolution'] = str(width) + "_" + str(height)
 
         return res
@@ -52,6 +52,12 @@ class ADS:
 
     @staticmethod
     def wait_until_available():
+        while time.time() - ADS.LAST_REQUEST_TIME < 1.2:
+            time.sleep(0.1)
+
+        while time.time() - ADS.LAST_REQUEST_TIME < 1.2:
+            time.sleep(0.1)
+
         while time.time() - ADS.LAST_REQUEST_TIME < 1.2:
             time.sleep(0.1)
 

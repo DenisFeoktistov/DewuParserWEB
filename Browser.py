@@ -103,6 +103,8 @@ class Browser:
             if captcha_on_a_page:
                 self.solve_captcha(self.driver.page_source)
                 time.sleep(7)
+                print("Reloading")
+                self.driver.refresh()
                 continue
 
             print("Reloading")
