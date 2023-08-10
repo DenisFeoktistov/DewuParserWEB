@@ -49,7 +49,7 @@ class ParserApp:
             ADS.stop_browser(self.static_proxies_browsers[i].profile_id)
             ADS.delete_profile(self.static_proxies_browsers[i].profile_id)
 
-            profile_id = ADS.create_profile(proxy=self.static_proxies_list[i])['data']['id']
+            profile_id = ADS.create_profile(proxy=self.static_proxies_list[0])['data']['id']
             self.static_proxies_list.append(self.static_proxies_list.pop(0))
 
             self.static_proxies_browsers[i] = Browser(profile_id)
@@ -59,7 +59,7 @@ class ParserApp:
 
             with open("logs.txt", "a") as logs_file:
                 logs_file.write(
-                    f"Recreating browser {i} with dynamic proxy {self.dynamic_proxies_list[0]} Current time is {datetime.datetime.now()}\n")
+                    f"Recreating browser {i} with dynamic proxy {self.dynamic_proxies_list[i]} Current time is {datetime.datetime.now()}\n")
 
             ADS.stop_browser(self.dynamic_proxies_browsers[i].profile_id)
             ADS.delete_profile(self.dynamic_proxies_browsers[i].profile_id)
