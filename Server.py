@@ -1,3 +1,4 @@
+import json
 import time
 
 import requests
@@ -36,12 +37,18 @@ def parse_product_page_temp():
 if __name__ == '__main__':
     parser_app = ParserApp()
 
-    static_proxies_list = list(map(lambda s: "http:" + s, open("proxies.txt").read().strip().split()))
+    config = json.loads(open("config.json").read())
 
-    parser_app.start(number_of_static_profiles=1, number_of_dynamic_profiles=1,
-                     dynamic_proxies_list=[
-                         "http:188.143.169.27:30138:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise"
-                     ],
-                     static_proxies_list=static_proxies_list)
+    static_proxies_list = config["static_proxies_list"]
+    number_of_static_profiles = config["number_of_static_profiles"]
+    dynamic_proxies_list = config["dynamic_proxies_list"]
+    number_of_dynamic_profiles = config["number_of_dynamic_profiles"]
+
+    parser_app.start(
+        number_of_static_profiles=number_of_static_profiles,
+        number_of_dynamic_profiles=number_of_dynamic_profiles,
+        static_proxies_list=static_proxies_list,
+        dynamic_proxies_list=dynamic_proxies_list
+    )
 
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

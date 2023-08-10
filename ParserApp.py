@@ -41,7 +41,7 @@ class ParserApp:
             browser.start()
 
     def recreate_browser(self, i):
-        if i <= len(self.static_proxies_browsers):
+        if i < len(self.static_proxies_browsers):
             with open("logs.txt", "a") as logs_file:
                 logs_file.write(
                     f"Recreating browser {i} with static proxy {self.static_proxies_list[0]} Current time is {datetime.datetime.now()}\n")
