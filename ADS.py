@@ -55,12 +55,6 @@ class ADS:
         while time.time() - ADS.LAST_REQUEST_TIME < 1.2:
             time.sleep(0.1)
 
-        while time.time() - ADS.LAST_REQUEST_TIME < 1.2:
-            time.sleep(0.1)
-
-        while time.time() - ADS.LAST_REQUEST_TIME < 1.2:
-            time.sleep(0.1)
-
         ADS.LAST_REQUEST_TIME = time.time()
 
     @staticmethod
@@ -182,6 +176,8 @@ class ADS:
 
         if ADS.DEBUG:
             print(f"Create profile with proxy {proxy} response: ", response.text)
+
+        return response.json()
 
     @staticmethod
     def delete_profile(profile_id):

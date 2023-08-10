@@ -36,18 +36,12 @@ def parse_product_page_temp():
 if __name__ == '__main__':
     parser_app = ParserApp()
 
-    parser_app.start(number_of_profiles=1, proxy_list=
-    [
-        "http:188.143.169.27:30138:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",
-        "http:188.143.169.27:30152:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",
-        "http:188.143.169.27:30149:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",
-        "http:188.143.169.27:30054:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",
-        "http:188.143.169.27:30044:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",
-        "http:188.143.169.27:30053:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",
-        "http:188.143.169.27:30051:iparchitect_28044_06_08_23:kSib7DBKr9SssyyD64",
-        "http:188.143.169.27:30014:iparchitect_28044_06_08_23:NDEyEfT8n24552t7Kt",
-        "http:188.143.169.27:30038:iparchitect_28044_06_08_23:S3SAHreQHrQi8t4de4",
-        "http:188.143.169.27:30043:iparchitect_28044_06_08_23:5f28QsnahK88Ht55hA"
-    ])
+    static_proxies_list = list(map(lambda s: "http:" + s, open("proxies.txt").read().strip().split()))
+
+    parser_app.start(number_of_static_profiles=1, number_of_dynamic_profiles=1,
+                     dynamic_proxies_list=[
+                         "http:188.143.169.27:30138:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise"
+                     ],
+                     static_proxies_list=static_proxies_list)
 
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

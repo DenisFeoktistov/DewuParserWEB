@@ -1,3 +1,4 @@
+import datetime
 import time
 import requests
 
@@ -7,87 +8,82 @@ from Browser import Browser
 
 class ParserApp:
     def __init__(self):
-        self.browsers = list()
-        self.get_proxy_url = ""
-        self.proxy_list = list()
+        self.static_proxies_browsers = list()
+        self.dynamic_proxies_browsers = list()
 
-    def update_proxies(self):
-        while True:
-            time_to_wait = 120
+        self.static_proxies_list = list()
+        self.dynamic_proxies_list = list()
 
-            response = requests.request("GET", self.get_proxy_url).text
+    def start(self, number_of_static_profiles=0, number_of_dynamic_profiles=0, dynamic_proxies_list=tuple(),
+              static_proxies_list=tuple()):
 
-            for proxy in list(map(lambda proxy_host_port: "http:" + proxy_host_port, response.split())):
-                self.proxy_list.append(proxy)
-
-            print(self.proxy_list)
-
-            for i, browser in enumerate(self.browsers):
-                while browser.busy:
-                    print(f"Waiting while browser {i} busy")
-                    time.sleep(5)
-                    time_to_wait -= 5
-
-                print(f"Updating browser {i} proxy")
-                browser.update_proxy(self.proxy_list.pop())
-
-            time_to_wait = max(time_to_wait, 1)
-            time.sleep(time_to_wait)
-
-    def start(self, number_of_profiles=1, proxy_list=tuple()):
-        # self.get_proxy_url = get_proxy_url
-        self.proxy_list = proxy_list
+        self.static_proxies_list = list(static_proxies_list)
+        self.dynamic_proxies_list = list(dynamic_proxies_list)
 
         ADS.clear_all_profiles()
 
-        for i in range(number_of_profiles):
-            if len(proxy_list) >= number_of_profiles:
-                ADS.create_profile(proxy_list[i])
-            else:
-                ADS.create_profile()
+        for i in range(number_of_static_profiles):
+            profile_id = ADS.create_profile(proxy=self.static_proxies_list[i])['data']['id']
+            self.static_proxies_browsers.append(Browser(profile_id))
 
-        profile_ids = list(map(lambda profile: profile['user_id'], ADS.list_all_profiles()))
+            self.static_proxies_list.append(self.static_proxies_list.pop(0))
 
-        for profile_id in profile_ids:
-            self.browsers.append(Browser(profile_id))
+        for i in range(number_of_dynamic_profiles):
+            profile_id = ADS.create_profile(proxy=self.dynamic_proxies_list[i])['data']['id']
+            self.dynamic_proxies_browsers.append(Browser(profile_id))
 
-        for browser in self.browsers:
+        print("Starting browsers with static proxies")
+        for browser in self.static_proxies_browsers:
             browser.start()
 
-        # threading.Thread(target=self.update_proxies).start()
+        print("Starting browsers with dynamic proxies")
+        for browser in self.dynamic_proxies_browsers:
+            browser.start()
 
-    def recreate_browser(self, browser_index):
-        ADS.stop_browser(self.browsers[browser_index].profile_id)
-        ADS.delete_profile(self.browsers[browser_index].profile_id)
+    def recreate_browser(self, i):
+        if i <= len(self.static_proxies_browsers):
+            with open("logs.txt", "a") as logs_file:
+                logs_file.write(
+                    f"Recreating browser {i} with static proxy {self.static_proxies_list[0]} Current time is {datetime.datetime.now()}\n")
 
-        if len(self.proxy_list) != 0:
-            ADS.create_profile(proxy=self.proxy_list[browser_index])
+            ADS.stop_browser(self.static_proxies_browsers[i].profile_id)
+            ADS.delete_profile(self.static_proxies_browsers[i].profile_id)
+
+            profile_id = ADS.create_profile(proxy=self.static_proxies_list[i])['data']['id']
+            self.static_proxies_list.append(self.static_proxies_list.pop(0))
+
+            self.static_proxies_browsers[i] = Browser(profile_id)
+            self.static_proxies_browsers[i].start()
         else:
-            ADS.create_profile()
+            i = i - len(self.static_proxies_browsers)
 
-        self.browsers[browser_index] = Browser(ADS.list_all_profiles()[0]['user_id'])
-        self.browsers[browser_index].start()
+            with open("logs.txt", "a") as logs_file:
+                logs_file.write(
+                    f"Recreating browser {i} with dynamic proxy {self.dynamic_proxies_list[0]} Current time is {datetime.datetime.now()}\n")
 
-    def parse_product_page_full(self, url, only_prices):
-        for i in range(len(self.browsers)):
-            if not self.browsers[i].busy:
-                res = self.browsers[i].parse_product_page_full(url, only_prices)
+            ADS.stop_browser(self.dynamic_proxies_browsers[i].profile_id)
+            ADS.delete_profile(self.dynamic_proxies_browsers[i].profile_id)
 
-                while res == -1:
-                    print(f"Recreating browser {i}")
-                    self.recreate_browser(i)
-                    res = self.browsers[i].parse_product_page_full(url, only_prices)
+            profile_id = ADS.create_profile(proxy=self.dynamic_proxies_list[i])['data']['id']
 
-                return res
-
-        return -1
+            self.dynamic_proxies_browsers[i] = Browser(profile_id)
+            self.dynamic_proxies_browsers[i].start()
 
     def parse_product_page_full_temp(self, url, only_prices, i):
-        res = self.browsers[i].parse_product_page_full(url, only_prices)
+        browser = (
+            self.static_proxies_browsers[i] if i < len(self.static_proxies_browsers) else self.dynamic_proxies_browsers[
+                i - len(self.static_proxies_browsers)])
+
+        res = browser.parse_product_page_full(url, only_prices)
 
         while res == -1:
             print(f"Recreating browser {i}")
             self.recreate_browser(i)
-            res = self.browsers[i].parse_product_page_full(url, only_prices)
+
+            browser = (
+                self.static_proxies_browsers[i] if i < len(self.static_proxies_browsers) else
+                self.dynamic_proxies_browsers[
+                    i - len(self.static_proxies_browsers)])
+            res = browser.parse_product_page_full(url, only_prices)
 
         return res
