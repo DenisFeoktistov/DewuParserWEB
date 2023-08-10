@@ -23,7 +23,7 @@ class ParserApp:
         ADS.clear_all_profiles()
 
         for i in range(number_of_static_profiles):
-            profile_id = ADS.create_profile(proxy=self.static_proxies_list[i])['data']['id']
+            profile_id = ADS.create_profile(proxy=self.static_proxies_list[0])['data']['id']
             self.static_proxies_browsers.append(Browser(profile_id))
 
             self.static_proxies_list.append(self.static_proxies_list.pop(0))
