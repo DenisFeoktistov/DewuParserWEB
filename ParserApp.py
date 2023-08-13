@@ -1,9 +1,13 @@
 import datetime
+import threading
 import time
 import requests
 
 from ADS import ADS
 from Browser import Browser
+
+
+ADS_LOCK = threading.Lock()
 
 
 class ParserApp:
@@ -78,7 +82,10 @@ class ParserApp:
 
         while res == -1:
             print(f"Recreating browser {i}")
-            self.recreate_browser(i)
+            with ADS_LOCK:
+                self.recreate_browser(i)
+                print(datetime.datetime.now())
+                time.sleep(3)
 
             browser = (
                 self.static_proxies_browsers[i] if i < len(self.static_proxies_browsers) else

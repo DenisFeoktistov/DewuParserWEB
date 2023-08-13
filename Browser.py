@@ -80,7 +80,7 @@ class Browser:
             return -1
 
     def make_page_available(self):
-        cnt = 5
+        cnt = 2
 
         while True:
             is_available = False
