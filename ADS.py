@@ -1,8 +1,35 @@
+import os
 import random
 import time
 from time import sleep
 
 import requests
+
+
+def handle_exceptions(max_attempts=3, retry_interval=30):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except requests.exceptions.ConnectionError as e:
+                    print(f"Connection error occurred: {e}")
+                    print(f"Retrying in {retry_interval} seconds after restarting ADS")
+                    ADS.restart_ADS()
+                    time.sleep(retry_interval)
+                    attempts += 1
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                    print(f"Retrying in {retry_interval} seconds...")
+                    time.sleep(retry_interval)
+                    attempts += 1
+
+            return None
+
+        return wrapper
+
+    return decorator
 
 
 class ADS:
@@ -34,6 +61,7 @@ class ADS:
     }
 
     LAST_REQUEST_TIME = time.time()
+    LAST_RESTART_TIME = time.time() - 60
     JSON_HEADERS = {'Content-Type': 'application/json'}
 
     MAIN_GROUP_NAME = "DEWU"
@@ -49,6 +77,18 @@ class ADS:
 
     def __init__(self):
         pass
+
+    @staticmethod
+    def restart_ADS():
+        if time.time() - ADS.LAST_RESTART_TIME > 60:
+            print("Restarting ADS")
+            ADS.LAST_RESTART_TIME = time.time()
+
+            os.system(f"taskkill /f /im \"AdsPower Global.exe\"")
+            time.sleep(5)
+
+            command = 'start "" "C:\\Program Files\\AdsPower Global\\AdsPower Global.exe"'
+            os.system(command)
 
     @staticmethod
     def wait_until_available():
@@ -76,6 +116,7 @@ class ADS:
             sleep(1)
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def list_all_profiles():
         url = ADS.API_URL + "user/list?page_size=100"
 
@@ -91,6 +132,7 @@ class ADS:
             return list()
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def list_all_groups():
         url = ADS.API_URL + "group/list"
 
@@ -106,6 +148,7 @@ class ADS:
             return list()
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def create_group(name):
         url = ADS.API_URL + "group/create"
 
@@ -120,6 +163,7 @@ class ADS:
             print(f"Create group {name} response: ", response.text)
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def create_profile(proxy=""):
         groups = ADS.list_all_groups()
         group_id = ""
@@ -180,6 +224,7 @@ class ADS:
         return response.json()
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def delete_profile(profile_id):
         ADS.check_status_okay()
 
@@ -195,6 +240,7 @@ class ADS:
             print(f"Delete profile {profile_id} response: ", response.text)
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def clear_all_profiles():
         if ADS.DEBUG:
             print("Clear all profiles started")
@@ -209,6 +255,7 @@ class ADS:
             print("Clear all profiles finished")
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def start_browser(profile_id):
         url = ADS.API_URL + f'browser/start?user_id={profile_id}&clear_cache_after_closing=1&launch_args=["--disable-notifications"]'
 
@@ -221,6 +268,7 @@ class ADS:
         return response.json()['data']['ws']['selenium'], response.json()['data']['webdriver']
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def stop_browser(profile_id):
         url = ADS.API_URL + f"browser/stop?user_id={profile_id}"
 
@@ -231,6 +279,7 @@ class ADS:
             print(f"Stop browser {profile_id} response: ", response.text)
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def check_browser_status(profile_id):
         url = ADS.API_URL + f"browser/active?user_id={profile_id}"
 
@@ -243,6 +292,7 @@ class ADS:
         return response.json()['data']['status']
 
     @staticmethod
+    @handle_exceptions(max_attempts=3, retry_interval=15)
     def update_profile_proxy(profile_id, proxy):
         url = ADS.API_URL + "user/update"
 
