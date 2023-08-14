@@ -61,7 +61,7 @@ class ADS:
     }
 
     LAST_REQUEST_TIME = time.time()
-    LAST_RESTART_TIME = time.time() - 60
+    LAST_RESTART_TIME = time.time() - 240
     JSON_HEADERS = {'Content-Type': 'application/json'}
 
     MAIN_GROUP_NAME = "DEWU"
@@ -80,11 +80,11 @@ class ADS:
 
     @staticmethod
     def restart_ADS():
-        if time.time() - ADS.LAST_RESTART_TIME > 60:
+        if time.time() - ADS.LAST_RESTART_TIME > 240:
             print("Restarting ADS")
             ADS.LAST_RESTART_TIME = time.time()
 
-            os.system(f"taskkill /f /im \"AdsPower Global.exe\"")
+            os.system(f"taskkill /im \"AdsPower Global.exe\"")
             time.sleep(5)
 
             command = 'start "" "C:\\Program Files\\AdsPower Global\\AdsPower Global.exe"'
