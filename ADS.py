@@ -84,8 +84,8 @@ class ADS:
             print("Restarting ADS")
             ADS.LAST_RESTART_TIME = time.time()
 
-            os.system(f"taskkill /im \"AdsPower Global.exe\"")
-            time.sleep(5)
+            os.system(f"taskkill /f /im \"AdsPower Global.exe\"")
+            os.system(f"taskkill /f /im \"SunBrowser.exe\"")
 
             command = 'start "" "C:\\Program Files\\AdsPower Global\\AdsPower Global.exe"'
             os.system(command)
@@ -175,6 +175,7 @@ class ADS:
         if not group_id:
             ADS.create_group(ADS.MAIN_GROUP_NAME)
 
+            groups = ADS.list_all_groups()
             for group in groups:
                 if group['group_name'] == ADS.MAIN_GROUP_NAME:
                     group_id = group['group_id']

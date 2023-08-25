@@ -79,8 +79,13 @@ class ParserApp:
                 i - len(self.static_proxies_browsers)])
 
         res = browser.parse_product_page_full(url, only_prices)
+        cnt = 0
 
         while res == -1:
+            cnt += 1
+
+            if cnt == 2:
+                return -1
             print(f"Recreating browser {i}")
             with ADS_LOCK:
                 self.recreate_browser(i)
