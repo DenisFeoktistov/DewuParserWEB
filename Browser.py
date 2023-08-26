@@ -64,6 +64,11 @@ class Browser:
                 html_content = self.driver.page_source
 
                 res['size_table'] = self.parse_size_tables(html_content)
+                res['size_table']["key_orders"] = dict()
+                for table_name in res['size_table']:
+                    res['size_table']["key_orders"][table_name] = list(res['size_table'][table_name].keys())
+
+                print(res['size_table']["key_orders"])
                 res['params'] = self.parse_params_table(html_content)
                 res['descriptions'] = self.parse_descriptions(html_content)
 
