@@ -24,3 +24,4 @@ trio-websocket==0.10.3
 urllib3==2.0.3
 Werkzeug==2.3.6
 wsproto==1.2.0
+pyppeteer==1.0.2

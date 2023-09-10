@@ -1,6 +1,6 @@
 {
-  "number_of_static_profiles": 5,
-  "number_of_dynamic_profiles": 10,
+  "number_of_static_profiles": 1,
+  "number_of_dynamic_profiles": 1,
   "dynamic_proxies_list": [
     "http:188.143.169.27:30138:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",
     "http:188.143.169.27:30152:iparchitect_28044_06_08_23:d6YQZ7SnFTyd5Tnise",

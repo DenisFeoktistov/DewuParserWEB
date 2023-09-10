@@ -1,6 +1,7 @@
 import itertools
 import json
 import random
+import re
 
 import time
 import requests
@@ -44,7 +45,8 @@ class Browser:
         return len(info) > 0
 
     def check_captcha(self):
-        captcha = self.driver.find_elements(By.ID, "rotateImg")
+        # captcha = self.driver.find_elements(By.ID, "rotateImg")
+        captcha = self.driver.find_elements(By.ID, "clickImg")
 
         return len(captcha) > 0
 
@@ -350,33 +352,116 @@ class Browser:
     def solve_captcha(self, page_source):
         soup = BeautifulSoup(page_source, 'html.parser')
 
-        img_tag1 = soup.find(id='rotateBlock')
-        base64_data1 = img_tag1['src'].split(',')[1]
+        # img_tag1 = soup.find(id='rotateBlock')
+        # base64_data1 = img_tag1['src'].split(',')[1]
+        #
+        # img_tag2 = soup.find(id='rotateImg')
+        # base64_data2 = img_tag2['src'].split(',')[1]
+        #
+        # image_data1 = base64.b64decode(base64_data1)
+        # image1 = Image.open(io.BytesIO(image_data1))
+        #
+        # image_data2 = base64.b64decode(base64_data2)
+        # image2 = Image.open(io.BytesIO(image_data2))
+        #
+        # image1.save('captcha_image1.png')
+        # image2.save('captcha_image2.png')
 
-        img_tag2 = soup.find(id='rotateImg')
-        base64_data2 = img_tag2['src'].split(',')[1]
+        # url = 'http://51.250.74.115:5001/process_captcha'
+        # with open('captcha_image1.png', 'rb') as img1, open('captcha_image2.png', 'rb') as img2:
+        #     files = {
+        #         'captcha_large': img1,
+        #         'captcha_small': img2
+        #     }
+        #
+        #     response = requests.post(url, files=files)
+        # self.rotate_captcha(result)
+        img_tag1 = soup.find(id='clickImg')
+        image = self.driver.find_element(By.ID, "clickImg")
 
-        image_data1 = base64.b64decode(base64_data1)
-        image1 = Image.open(io.BytesIO(image_data1))
+        width, height = image.size['width'], image.size['height']
 
-        image_data2 = base64.b64decode(base64_data2)
-        image2 = Image.open(io.BytesIO(image_data2))
+        base64_blocks_image = img_tag1['src'].split(',')[1]
 
-        image1.save('captcha_image1.png')
-        image2.save('captcha_image2.png')
+        img_tag2 = soup.find(id='clickTokenImg')
+        base64_task_image = img_tag2['src'].split(',')[1]
 
-        url = 'http://51.250.74.115:5001/process_captcha'
-        with open('captcha_image1.png', 'rb') as img1, open('captcha_image2.png', 'rb') as img2:
-            files = {
-                'captcha_large': img1,
-                'captcha_small': img2
-            }
+        data = {
+            "blocks_image": base64_blocks_image,
+            "task_image": base64_task_image,
+            "size": [width, height]
+        }
 
-            response = requests.post(url, files=files)
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        url = "http://localhost:5001/solve_image_captcha"
+        response = requests.post(url, json=data, headers=headers)
 
         result = response.json()['result']
 
-        self.rotate_captcha(result)
+        self.click_captcha(result)
+
+    @staticmethod
+    def move_with_noise_deltas(start_x, start_y, end_x, end_y, num_steps, max_noise):
+        print(start_x, end_x)
+        points_x = [start_x + i * ((end_x - start_x) // num_steps) for i in range(num_steps)]
+        points_x.append(end_x)
+
+        points_y = [start_y + i * ((end_y - start_y) // num_steps) for i in range(num_steps)]
+        points_y.append(end_y)
+
+        for i in range(1, num_steps):
+            points_x[i] += random.randint(-max_noise, max_noise)
+            points_y[i] += random.randint(-max_noise, max_noise)
+
+        print(start_x, end_x)
+        print(points_x)
+
+        print(start_y, end_y)
+        print(points_y)
+
+        deltas = list()
+        for i in range(1, num_steps + 1):
+            deltas.append((points_x[i] - points_x[i - 1], points_y[i] - points_y[i - 1]))
+
+        print(deltas)
+
+        return deltas
+
+    def click_captcha(self, points):
+        image = self.driver.find_element(By.ID, "clickImg")
+        width, height = image.size['width'], image.size['height']
+        print(width, height)
+
+        action_chains = ActionChains(self.driver)
+        x, y = points[0]
+        print(x, y)
+        action_chains.move_to_element_with_offset(image, x - width // 2, y - height // 2).click().perform()
+
+        num_steps = 5
+        max_noise = 2
+
+        for point in points[1:]:
+            print("Iteration")
+            deltas = self.move_with_noise_deltas(x, y, point[0], point[1], num_steps, max_noise)
+
+            for delta in deltas[:3]:
+                action_chains.move_by_offset(delta[0], delta[1])
+                time.sleep(random.randint(1, 2) * 0.001)
+
+            for delta in deltas[3:]:
+                action_chains.move_by_offset(delta[0], delta[1])
+                time.sleep(random.randint(1, 2) * 0.002)
+
+            action_chains.move_by_offset(deltas[-1][0] // 2, deltas[-1][1] // 2)
+            time.sleep(0.001)
+            action_chains.move_by_offset(-deltas[-1][0] // 2, -deltas[-1][1] // 2)
+
+            action_chains.click().perform()
+            x, y = point[0], point[1]
 
     def rotate_captcha(self, result):
         element = self.driver.find_element("id", "slideHint")

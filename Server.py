@@ -1,10 +1,8 @@
 import json
-import time
-
-import requests
+from flask import Flask, request
 
 from ParserApp import ParserApp
-from flask import Flask, request, jsonify, send_file
+
 
 app = Flask(__name__)
 
