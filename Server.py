@@ -1,52 +1,129 @@
+import asyncio
 import json
-from flask import Flask, request
+import random
+
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 
 from ParserApp import ParserApp
+from ParseRequests import ParseRequests
+from Statuses import ErrorMessages
+
+from logger import main_logger
+
+app = FastAPI()
+parser_app = ParserApp()
 
 
-app = Flask(__name__)
+@app.get('/test')
+async def test():
+    return JSONResponse(status_code=200, content={"message": "1"})
 
 
-@app.route('/test', methods=['GET'])
-def test():
-    return "1"
+@app.post('/parse_product_page')
+async def parse_product_page_main(request: Request):
+    main_logger.info(f"Parse product page main request {Request}")
+
+    data = await request.json()
+    url = data['url']
+
+    result = await parser_app.parse_product_page(url, ParseRequests.MAIN)
+
+    if result in ErrorMessages:
+        return JSONResponse(status_code=500, content={"message": result})
+
+    return JSONResponse(status_code=200, content=result)
 
 
-@app.route('/parse_product_page', methods=['POST'])
-def parse_product_page():
-    res = parser_app.parse_product_page_full(request.json['url'], request.json['only_prices'])
+@app.post('/parse_product_page_passive')
+async def parse_product_page_passive(request: Request):
+    main_logger.info(f"Parse product page passive request {Request}")
 
-    if res == -1:
-        return "Server is too busy now, can't reply"
+    data = await request.json()
+    url = data['url']
 
-    return str(res)
+    result = await parser_app.parse_product_page(url, ParseRequests.PASSIVE)
 
+    if result in ErrorMessages:
+        return JSONResponse(status_code=500, content={"message": result})
 
-@app.route('/parse_product_page_temp', methods=['POST'])
-def parse_product_page_temp():
-    res = parser_app.parse_product_page_full_temp(request.json['url'], request.json['only_prices'], request.json['i'])
-
-    if res == -1:
-        return "Server is too busy now, can't reply"
-
-    return str(res)
+    return JSONResponse(status_code=200, content=result)
 
 
-if __name__ == '__main__':
-    parser_app = ParserApp()
+@app.post('/parse_product_page_aggressive')
+async def parse_product_page_aggressive(request: Request):
+    main_logger.info(f"Parse product page aggressive request {Request}")
 
+    data = await request.json()
+    url = data['url']
+
+    result = await parser_app.parse_product_page(url, ParseRequests.AGGRESSIVE)
+
+    if result in ErrorMessages:
+        return JSONResponse(status_code=500, content={"message": result})
+
+    return JSONResponse(status_code=200, content=result)
+
+
+@app.post('/reserve_parser_for_aggressive')
+async def reserve_parser_for_aggressive():
+    main_logger.info(f"Reserve parser for aggressive request")
+
+    result = await parser_app.reserve_parser_for_aggressive()
+
+    if result in ErrorMessages:
+        return JSONResponse(status_code=500, content={"message": result})
+
+    return JSONResponse(status_code=200, content={"message": "Browser has been reserved"})
+
+
+@app.post('/release_parser_for_aggressive')
+async def release_parser_for_aggressive():
+    main_logger.info(f"Release parser for aggressive request")
+
+    result = await parser_app.release_parser_for_aggressive()
+
+    if result in ErrorMessages:
+        return JSONResponse(status_code=500, content={"message": result})
+
+    return JSONResponse(status_code=200, content={"message": "Browser has been released"})
+
+
+@app.get('/number_of_browsers')
+async def get_number_of_browsers():
+    main_logger.info(f"Get number of browsers request")
+
+    return parser_app.number_of_static_profiles + parser_app.number_of_dynamic_profiles
+
+
+async def main():
+    main_logger.info(f"Starting ParserApp")
+
+    print(id(asyncio.get_event_loop()))
     config = json.loads(open("config.json").read())
 
     static_proxies_list = config["static_proxies_list"]
+    random.shuffle(static_proxies_list)
+
     number_of_static_profiles = config["number_of_static_profiles"]
     dynamic_proxies_list = config["dynamic_proxies_list"]
     number_of_dynamic_profiles = config["number_of_dynamic_profiles"]
 
-    parser_app.start(
+    print(id(asyncio.get_event_loop()))
+
+    await parser_app.start(
         number_of_static_profiles=number_of_static_profiles,
         number_of_dynamic_profiles=number_of_dynamic_profiles,
         static_proxies_list=static_proxies_list,
         dynamic_proxies_list=dynamic_proxies_list
     )
 
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+
+if __name__ == '__main__':
+    asyncio.run(
+        main()
+    )
+
+    import uvicorn
+
+    uvicorn.run(app, host='0.0.0.0', port=5000)

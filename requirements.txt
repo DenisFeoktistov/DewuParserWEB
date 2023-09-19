@@ -25,3 +25,5 @@ urllib3==2.0.3
 Werkzeug==2.3.6
 wsproto==1.2.0
 pyppeteer==1.0.2
+uvicorn~=0.23.2
+fastapi~=0.103.1

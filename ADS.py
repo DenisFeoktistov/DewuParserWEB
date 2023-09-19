@@ -266,7 +266,7 @@ class ADS:
         if ADS.DEBUG:
             print(f"Start browser {profile_id} response: ", response.text)
 
-        return response.json()['data']['ws']['selenium'], response.json()['data']['webdriver']
+        return response.json()['data']['ws']['puppeteer'], response.json()['data']['webdriver']
 
     @staticmethod
     @handle_exceptions(max_attempts=3, retry_interval=15)
