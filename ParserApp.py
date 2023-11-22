@@ -55,12 +55,8 @@ class ParserApp:
         for browser in self.dynamic_proxies_browsers:
             await browser.start()
 
-    async def recreate_browser(self, i):
+    async def recreate_browser(self, i, status=None):
         if i < len(self.static_proxies_browsers):
-            with open("logs.txt", "a") as logs_file:
-                logs_file.write(
-                    f"Recreating browser {i} with static proxy {self.static_proxies_list[0]} Current time is {datetime.datetime.now()}\n")
-
             ADS.stop_browser(self.static_proxies_browsers[i].profile_id)
             ADS.delete_profile(self.static_proxies_browsers[i].profile_id)
 
@@ -68,13 +64,13 @@ class ParserApp:
             self.static_proxies_list.append(self.static_proxies_list.pop(0))
 
             self.static_proxies_browsers[i] = Browser(profile_id)
+
+            if status:
+                self.static_proxies_browsers[i].status = status
+
             await self.static_proxies_browsers[i].start()
         else:
             i = i - len(self.static_proxies_browsers)
-
-            with open("logs.txt", "a") as logs_file:
-                logs_file.write(
-                    f"Recreating browser {i} with dynamic proxy {self.dynamic_proxies_list[i]} Current time is {datetime.datetime.now()}\n")
 
             ADS.stop_browser(self.dynamic_proxies_browsers[i].profile_id)
             ADS.delete_profile(self.dynamic_proxies_browsers[i].profile_id)
@@ -82,27 +78,25 @@ class ParserApp:
             profile_id = ADS.create_profile(proxy=self.dynamic_proxies_list[i])['data']['id']
 
             self.dynamic_proxies_browsers[i] = Browser(profile_id)
+
+            if status:
+                self.dynamic_proxies_browsers[i].status = status
+
             await self.dynamic_proxies_browsers[i].start()
 
     async def process_url(self, browser_index, url, parse_request):
         browser = (self.static_proxies_browsers[browser_index] if browser_index < len(self.static_proxies_browsers) else
                    self.dynamic_proxies_browsers[browser_index - len(self.static_proxies_browsers)])
+        status = browser.status
 
-        if parse_request == ParseRequests.MAIN:
-            browser.status = BrowserStatuses.MAIN_IN_WORK
-
-        if parse_request == ParseRequests.PASSIVE:
-            browser.status = BrowserStatuses.PASSIVE_IN_WORK
-
-        if parse_request == ParseRequests.AGGRESSIVE:
-            browser.status = BrowserStatuses.AGGRESSIVE_IN_WORK
-
-        print(id(asyncio.get_event_loop()))
         result = await browser.parse_product_page_full(url)
 
         cnt = 1
-        while result == ErrorMessages.ERROR and cnt < 3:
-            await self.recreate_browser(browser_index)
+        while result == ErrorMessages.ERROR and cnt <= 3:
+            await self.recreate_browser(browser_index, status)
+            browser = (
+                self.static_proxies_browsers[browser_index] if browser_index < len(self.static_proxies_browsers) else
+                self.dynamic_proxies_browsers[browser_index - len(self.static_proxies_browsers)])
 
             result = await browser.parse_product_page_full(url)
             cnt += 1
@@ -127,44 +121,59 @@ class ParserApp:
                 if not browser and browser1.status in (BrowserStatuses.FREE, BrowserStatuses.PASSIVE_IN_WORK):
                     browser = browser1
                     browser_index = i
+                    browser.status = BrowserStatuses.MAIN_IN_WORK
 
             for i, browser1 in enumerate(self.dynamic_proxies_browsers):
                 if not browser and browser1.status in (BrowserStatuses.FREE, BrowserStatuses.PASSIVE_IN_WORK):
                     browser = browser1
                     browser_index = i + len(self.static_proxies_browsers)
+                    browser.status = BrowserStatuses.MAIN_IN_WORK
 
         if parse_request == ParseRequests.PASSIVE:
-            for browser1 in self.static_proxies_browsers:
+            for i, browser1 in enumerate(self.static_proxies_browsers):
                 if not browser and browser1.status == BrowserStatuses.FREE:
                     browser = browser1
+                    browser_index = i
+                    browser.status = BrowserStatuses.PASSIVE_IN_WORK
 
-            for browser1 in self.dynamic_proxies_browsers:
+            for i, browser1 in enumerate(self.dynamic_proxies_browsers):
                 if not browser and browser1.status == BrowserStatuses.FREE:
                     browser = browser1
+                    browser_index = i + len(self.static_proxies_browsers)
+                    browser.status = BrowserStatuses.PASSIVE_IN_WORK
 
         if parse_request == ParseRequests.AGGRESSIVE:
-            for browser1 in self.static_proxies_browsers:
+            for i, browser1 in enumerate(self.static_proxies_browsers):
                 if not browser and browser1.status == BrowserStatuses.AGGRESSIVE_RESERVED:
                     browser = browser1
+                    browser_index = i
+                    browser.status = BrowserStatuses.AGGRESSIVE_IN_WORK
 
-            for browser1 in self.dynamic_proxies_browsers:
+            for i, browser1 in enumerate(self.dynamic_proxies_browsers):
                 if not browser and browser1.status == BrowserStatuses.AGGRESSIVE_RESERVED:
                     browser = browser1
+                    browser_index = i + len(self.static_proxies_browsers)
+                    browser.status = BrowserStatuses.AGGRESSIVE_IN_WORK
 
         if not browser:
             return ErrorMessages.ALL_BROWSERS_ARE_BUSY
 
-        print(asyncio.get_event_loop())
-
         task = asyncio.create_task(self.process_url(browser_index, url, parse_request))
         if browser_index < len(self.static_proxies_browsers):
+            if self.static_proxies_browsers_tasks[browser_index]:
+                self.static_proxies_browsers_tasks[browser_index].cancel()
+
             self.static_proxies_browsers_tasks[browser_index] = task
         else:
+            if self.dynamic_proxies_browsers_tasks[browser_index - len(self.static_proxies_browsers)]:
+                self.dynamic_proxies_browsers_tasks[browser_index - len(self.static_proxies_browsers)].cancel()
+
             self.dynamic_proxies_browsers_tasks[browser_index - len(self.static_proxies_browsers)] = task
 
         try:
-            result = await asyncio.gather(task)
+            result = (await asyncio.gather(task))[0]
         except asyncio.CancelledError as e:
+            print(e)
             return ErrorMessages.INTERRUPTED
 
         return result

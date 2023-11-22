@@ -22,14 +22,18 @@ async def test():
 
 @app.post('/parse_product_page')
 async def parse_product_page_main(request: Request):
-    main_logger.info(f"Parse product page main request {Request}")
+    main_logger.info(f"Parse product page main request {request.url, await request.json(), request.client}")
 
     data = await request.json()
     url = data['url']
 
+    print("Parse product page request")
+    print(*map(lambda b: b.status, parser_app.static_proxies_browsers),
+          *map(lambda b: b.status, parser_app.dynamic_proxies_browsers))
+
     result = await parser_app.parse_product_page(url, ParseRequests.MAIN)
 
-    if result in ErrorMessages:
+    if result in ErrorMessages.ALL:
         return JSONResponse(status_code=500, content={"message": result})
 
     return JSONResponse(status_code=200, content=result)
@@ -37,14 +41,14 @@ async def parse_product_page_main(request: Request):
 
 @app.post('/parse_product_page_passive')
 async def parse_product_page_passive(request: Request):
-    main_logger.info(f"Parse product page passive request {Request}")
+    main_logger.info(f"Parse product page passive request {request.url, await request.json(), request.client}")
 
     data = await request.json()
     url = data['url']
 
     result = await parser_app.parse_product_page(url, ParseRequests.PASSIVE)
 
-    if result in ErrorMessages:
+    if result in ErrorMessages.ALL:
         return JSONResponse(status_code=500, content={"message": result})
 
     return JSONResponse(status_code=200, content=result)
@@ -52,14 +56,14 @@ async def parse_product_page_passive(request: Request):
 
 @app.post('/parse_product_page_aggressive')
 async def parse_product_page_aggressive(request: Request):
-    main_logger.info(f"Parse product page aggressive request {Request}")
+    main_logger.info(f"Parse product page aggressive request {request.url, await request.json(), request.client}")
 
     data = await request.json()
     url = data['url']
 
     result = await parser_app.parse_product_page(url, ParseRequests.AGGRESSIVE)
 
-    if result in ErrorMessages:
+    if result in ErrorMessages.ALL:
         return JSONResponse(status_code=500, content={"message": result})
 
     return JSONResponse(status_code=200, content=result)
@@ -71,7 +75,7 @@ async def reserve_parser_for_aggressive():
 
     result = await parser_app.reserve_parser_for_aggressive()
 
-    if result in ErrorMessages:
+    if result in ErrorMessages.ALL:
         return JSONResponse(status_code=500, content={"message": result})
 
     return JSONResponse(status_code=200, content={"message": "Browser has been reserved"})
@@ -83,7 +87,7 @@ async def release_parser_for_aggressive():
 
     result = await parser_app.release_parser_for_aggressive()
 
-    if result in ErrorMessages:
+    if result in ErrorMessages.ALL:
         return JSONResponse(status_code=500, content={"message": result})
 
     return JSONResponse(status_code=200, content={"message": "Browser has been released"})
@@ -99,7 +103,6 @@ async def get_number_of_browsers():
 async def main():
     main_logger.info(f"Starting ParserApp")
 
-    print(id(asyncio.get_event_loop()))
     config = json.loads(open("config.json").read())
 
     static_proxies_list = config["static_proxies_list"]
@@ -108,8 +111,6 @@ async def main():
     number_of_static_profiles = config["number_of_static_profiles"]
     dynamic_proxies_list = config["dynamic_proxies_list"]
     number_of_dynamic_profiles = config["number_of_dynamic_profiles"]
-
-    print(id(asyncio.get_event_loop()))
 
     await parser_app.start(
         number_of_static_profiles=number_of_static_profiles,

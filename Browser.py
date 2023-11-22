@@ -5,6 +5,8 @@ import random
 import re
 
 import time
+import traceback
+
 import requests
 
 from ADS import ADS
@@ -30,8 +32,9 @@ class Browser:
         self.page = None
 
     async def start(self):
-        print(id(asyncio.get_event_loop()))
         pyppeteer_link, driver_path = ADS.start_browser(self.profile_id)
+        await asyncio.sleep(3)
+
         self.pyppeteer_link = pyppeteer_link
 
     async def check_page_available(self):
@@ -49,19 +52,19 @@ class Browser:
         return len(captcha) > 0
 
     async def parse_product_page_full(self, url, only_prices=False):
-        try:
+        # try:
             self.driver = await pyppeteer.connect(browserWSEndpoint=self.pyppeteer_link, defaultViewport=None)
 
-            self.page = await self.driver.newPage()
+            if not self.page:
+                self.page = await self.driver.newPage()
 
             # try:
             start_time = time.time()
 
-            print(id(asyncio.get_event_loop()))
             await self.page.goto(url, timeout=0)
 
-            if await self.make_page_available() == -1:
-                return -1
+            if await self.make_page_available() == ErrorMessages.ERROR:
+                return ErrorMessages.ERROR
 
             res = {}
 
@@ -77,11 +80,13 @@ class Browser:
 
             res['prices'] = await self.parse_price_table()
             res['parse_time'] = str(round(time.time() - start_time, 2))
-        except Exception as e:
-            parser_exceptions_logger.info(f"Exception {e} on parsing")
-            return ErrorMessages.ERROR
+        # except Exception as e:
+        #     # print(e)
+        #     # traceback.print_exc()
+        #     parser_exceptions_logger.info(f"Exception {e} on parsing")
+        #     return ErrorMessages.ERROR
 
-        return res
+        # return res
 
     # except Exception as e:
     #     self.busy = False
@@ -89,14 +94,36 @@ class Browser:
     #     print(e)
     #     return -1
 
+    async def login_popup(self):
+        popup = await self.page.querySelectorAll('.duLogin')
+        return len(popup) > 0
+
+    async def captcha_solution_checked(self):
+        for i in range(4):
+            try:
+                marks = await self.page.querySelectorAll('#nToken1')
+                # print("Marks", len(marks))
+
+                if len(marks) == 0:
+                    # print("No marks")
+                    return
+
+                await asyncio.sleep(1.5)
+            except Exception:
+                return
+
+        return False
+
+
     async def make_page_available(self):
-        cnt = 2
+        cnt = 3
 
         while True:
             is_available = False
             captcha_on_a_page = False
+            login_popup = False
 
-            for i in range(20):
+            for i in range(40):
                 if await self.check_page_available():
                     is_available = True
                     break
@@ -105,24 +132,36 @@ class Browser:
                     captcha_on_a_page = True
                     break
 
+                if await self.login_popup():
+                    login_popup = True
+                    break
+
                 await asyncio.sleep(0.2)
+
+            if login_popup:
+                print("Login popup, recreating")
+                return ErrorMessages.ERROR
 
             if is_available:
                 break
 
             if captcha_on_a_page:
                 await self.solve_captcha(await self.page.content())
-                await asyncio.sleep(7)
-                print("Reloading")
-                await self.page.reload()
-                continue
+                result = await self.captcha_solution_checked()
+
+                if result:
+                    continue
+
+                # await asyncio.sleep(10)
+
+                # continue
 
             print("Reloading")
             await self.page.reload()
             cnt -= 1
 
             if cnt == 0:
-                return -1
+                return ErrorMessages.ERROR
 
         return 0
 
@@ -262,7 +301,7 @@ class Browser:
             "Content-Type": "application/json"
         }
 
-        url = "http://localhost:5001/solve_image_captcha"
+        url = "https://sellout.su/captcha_images/solve_image_captcha"
         response = requests.post(url, json=data, headers=headers)
         result = response.json()['result']
 
@@ -270,7 +309,7 @@ class Browser:
 
     @staticmethod
     def move_with_noise_deltas(start_x, start_y, end_x, end_y, num_steps, max_noise):
-        print(start_x, end_x)
+        # print(start_x, end_x)
         points_x = [start_x + i * ((end_x - start_x) // num_steps) for i in range(num_steps)]
         points_x.append(end_x)
 
@@ -281,17 +320,17 @@ class Browser:
             points_x[i] += random.randint(-max_noise, max_noise)
             points_y[i] += random.randint(-max_noise, max_noise)
 
-        print(start_x, end_x)
-        print(points_x)
+        # print(start_x, end_x)
+        # print(points_x)
 
-        print(start_y, end_y)
-        print(points_y)
+        # print(start_y, end_y)
+        # print(points_y)
 
         deltas = []
         for i in range(1, num_steps + 1):
             deltas.append((points_x[i] - points_x[i - 1], points_y[i] - points_y[i - 1]))
 
-        print(deltas)
+        # print(deltas)
 
         return deltas
 
@@ -317,7 +356,7 @@ class Browser:
         max_noise = 2
 
         for point in points[1:]:
-            print("Iteration")
+            # print("Iteration")
             deltas = self.move_with_noise_deltas(x, y, point[0], point[1], num_steps, max_noise)
 
             for delta in deltas[:3]:

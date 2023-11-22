@@ -43,16 +43,20 @@ class ADS:
     FINGERPRINT_CONFIG = {
         "fingerprint_config": {
             "automatic_timezone": "1",
-            "language_switch": "1",
-            "language": ["zh-CN", "zh"],
-            "scan_port_type": "1",
+            "language_switch": "0",
+            # "language": ["zh-CN", "zh"],
+            "scan_port_type": "0",
             # "screen_resolution": "300_1400",
-            "country": "cn",
+            "country": "ru",
             "webgl": "3",
-            "webrtc": "proxy",
+            # "webrtc": "proxy",
+            "webrtc": "disabled",
+            "location": "block",
             "audio": "0",
             "media_devices": "0",
+            # "ua": """Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.3"""
             # "random_ua": {"ua_system_version": ["Android 9", "Android 10", "Android 11", "Android 12", "Android 13"]}
+            "random_ua": {"ua_system_version": ["Mac OS X"]}
         }
     }
 
@@ -69,9 +73,10 @@ class ADS:
     @staticmethod
     def generate_fingerprint_config():
         res = ADS.FINGERPRINT_CONFIG
-        width = random.randint(47, 53) * 10
-        height = random.randint(85, 95) * 10
-        res['fingerprint_config']['screen_resolution'] = str(width) + "_" + str(height)
+        # width = random.randint(57, 63) * 10 + random.randint(1, 10)
+        # height = random.randint(93, 98) * 10 + random.randint(1, 10)
+        #
+        # res['fingerprint_config']['screen_resolution'] = str(width) + "_" + str(height)
 
         return res
 
