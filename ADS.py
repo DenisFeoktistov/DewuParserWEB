@@ -47,7 +47,7 @@ class ADS:
             # "language": ["zh-CN", "zh"],
             "scan_port_type": "0",
             # "screen_resolution": "300_1400",
-            "country": "ru",
+            # "country": "ru",
             "webgl": "3",
             # "webrtc": "proxy",
             "webrtc": "disabled",
@@ -56,6 +56,7 @@ class ADS:
             "media_devices": "0",
             # "ua": """Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.3"""
             # "random_ua": {"ua_system_version": ["Android 9", "Android 10", "Android 11", "Android 12", "Android 13"]}
+            # "random_ua": {"ua_system_version": ["Linux"]}
             "random_ua": {"ua_system_version": ["Mac OS X"]}
         }
     }

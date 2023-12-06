@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import itertools
 import json
 import random
@@ -6,8 +7,10 @@ import re
 
 import time
 import traceback
+from io import BytesIO
 
 import requests
+from PIL import Image
 
 from ADS import ADS
 
@@ -52,7 +55,7 @@ class Browser:
         return len(captcha) > 0
 
     async def parse_product_page_full(self, url, only_prices=False):
-        # try:
+        try:
             self.driver = await pyppeteer.connect(browserWSEndpoint=self.pyppeteer_link, defaultViewport=None)
 
             if not self.page:
@@ -79,14 +82,18 @@ class Browser:
                 res['descriptions'] = await self.parse_descriptions(html_content)
 
             res['prices'] = await self.parse_price_table()
-            res['parse_time'] = str(round(time.time() - start_time, 2))
-        # except Exception as e:
-        #     # print(e)
-        #     # traceback.print_exc()
-        #     parser_exceptions_logger.info(f"Exception {e} on parsing")
-        #     return ErrorMessages.ERROR
 
-        # return res
+            if res['prices'] == ErrorMessages.ERROR:
+                return ErrorMessages.ERROR
+
+            res['parse_time'] = str(round(time.time() - start_time, 2))
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+            parser_exceptions_logger.info(f"Exception {e} on parsing")
+            return ErrorMessages.ERROR
+
+        return res
 
     # except Exception as e:
     #     self.busy = False
@@ -178,20 +185,48 @@ class Browser:
     async def parse_price_table(self):
         await self.page.click('.payButton-content')
 
-        await self.page.waitForSelector('.popup.show')
+        popup = None
 
-        popup = await self.page.querySelector('.popup.show')
+        cnt = 0
+        while not popup:
+            cnt += 1
+
+            if cnt > 50:
+                return ErrorMessages.ERROR
+
+            if await self.login_popup():
+                print("Login popup 2, close")
+                return ErrorMessages.ERROR
+
+            popup = await self.page.querySelector('.popup.show')
+            await asyncio.sleep(0.2)
 
         await self.page.waitForSelector('.popup.show .close')
         close_notification_button = await popup.querySelector('.close')
 
         await close_notification_button.click()
+        await asyncio.sleep(2)
 
-        await asyncio.sleep(0.3)
+        select_popup = None
+        header_info = None
+        select_container = None
 
-        select_popup = await self.page.querySelector('.select-mask')
-        header_info = await select_popup.querySelector('.cover-desc')
-        select_container = await self.page.querySelector('.select-container')
+        cnt = 0
+        while not select_popup or not header_info or not select_container:
+            cnt += 1
+
+            if cnt > 50:
+                return ErrorMessages.ERROR
+
+            await asyncio.sleep(0.2)
+
+            if await self.login_popup():
+                print("Login popup 3, close")
+                return ErrorMessages.ERROR
+
+            select_popup = await self.page.querySelector('.select-mask')
+            header_info = await select_popup.querySelector('.cover-desc')
+            select_container = await self.page.querySelector('.select-container')
 
         return await self.non_recursive_parse_prices(select_popup, header_info, select_container)
 
@@ -290,6 +325,18 @@ class Browser:
         base64_blocks_image = img_tag1['src'].split(',')[1]
         img_tag2 = soup.find(id='clickTokenImg')
         base64_task_image = img_tag2['src'].split(',')[1]
+
+        base64_data = base64_task_image
+        image_data = base64.b64decode(base64_data)
+
+        # Create a BytesIO object
+        image_stream = BytesIO(image_data)
+
+        # Open the image using PIL
+        image = Image.open(image_stream)
+
+        # Save the image locally
+        image.save('local_image.png', 'PNG')
 
         data = {
             "blocks_image": base64_blocks_image,
