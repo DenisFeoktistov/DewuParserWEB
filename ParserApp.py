@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import random
 
 from ADS import ADS
 from Browser import Browser
@@ -113,50 +114,63 @@ class ParserApp:
         return result
 
     async def parse_product_page(self, url, parse_request):
-        browser = None
-        browser_index = None
+        # browser = None
+        # browser_index = None
+
+        browsers = list()
+        browser_status = None
+        browser_indexes = list()
 
         if parse_request == ParseRequests.MAIN:
+            browser_status = BrowserStatuses.MAIN_IN_WORK
+
             for i, browser1 in enumerate(self.static_proxies_browsers):
-                if not browser and browser1.status in (BrowserStatuses.FREE, BrowserStatuses.PASSIVE_IN_WORK):
-                    browser = browser1
-                    browser_index = i
-                    browser.status = BrowserStatuses.MAIN_IN_WORK
+                if browser1.status in (BrowserStatuses.FREE, BrowserStatuses.PASSIVE_IN_WORK):
+                    browsers.append(browser1)
+                    browser_indexes.append(i)
 
             for i, browser1 in enumerate(self.dynamic_proxies_browsers):
-                if not browser and browser1.status in (BrowserStatuses.FREE, BrowserStatuses.PASSIVE_IN_WORK):
-                    browser = browser1
-                    browser_index = i + len(self.static_proxies_browsers)
-                    browser.status = BrowserStatuses.MAIN_IN_WORK
+                if browser1.status in (BrowserStatuses.FREE, BrowserStatuses.PASSIVE_IN_WORK):
+                    browsers.append(browser1)
+                    browser_indexes.append(i + len(self.static_proxies_browsers))
 
         if parse_request == ParseRequests.PASSIVE:
+            browser_status = BrowserStatuses.PASSIVE_IN_WORK
+
             for i, browser1 in enumerate(self.static_proxies_browsers):
-                if not browser and browser1.status == BrowserStatuses.FREE:
-                    browser = browser1
-                    browser_index = i
-                    browser.status = BrowserStatuses.PASSIVE_IN_WORK
+                if browser1.status == BrowserStatuses.FREE:
+                    browsers.append(browser1)
+                    browser_indexes.append(i)
 
             for i, browser1 in enumerate(self.dynamic_proxies_browsers):
-                if not browser and browser1.status == BrowserStatuses.FREE:
-                    browser = browser1
-                    browser_index = i + len(self.static_proxies_browsers)
-                    browser.status = BrowserStatuses.PASSIVE_IN_WORK
+                if browser1.status == BrowserStatuses.FREE:
+                    browsers.append(browser1)
+                    browser_indexes.append(i + len(self.static_proxies_browsers))
 
         if parse_request == ParseRequests.AGGRESSIVE:
+            browser_status = BrowserStatuses.AGGRESSIVE_IN_WORK
+
             for i, browser1 in enumerate(self.static_proxies_browsers):
-                if not browser and browser1.status == BrowserStatuses.AGGRESSIVE_RESERVED:
-                    browser = browser1
-                    browser_index = i
-                    browser.status = BrowserStatuses.AGGRESSIVE_IN_WORK
+                if browser1.status == BrowserStatuses.AGGRESSIVE_RESERVED:
+                    browsers.append(browser1)
+                    browser_indexes.append(i)
 
             for i, browser1 in enumerate(self.dynamic_proxies_browsers):
-                if not browser and browser1.status == BrowserStatuses.AGGRESSIVE_RESERVED:
-                    browser = browser1
-                    browser_index = i + len(self.static_proxies_browsers)
-                    browser.status = BrowserStatuses.AGGRESSIVE_IN_WORK
+                if browser1.status == BrowserStatuses.AGGRESSIVE_RESERVED:
+                    browsers.append(browser1)
+                    browser_indexes.append(i + len(self.static_proxies_browsers))
 
-        if not browser:
+        if len(browsers) == 0:
             return ErrorMessages.ALL_BROWSERS_ARE_BUSY
+
+        i = random.randint(0, len(browsers) - 1)
+
+        browser_index = browser_indexes[i]
+        browser = browsers[i]
+        browser.status = browser_status
+
+        # print(*map(lambda b: b.status, self.static_proxies_browsers),
+        #       *map(lambda b: b.status, self.dynamic_proxies_browsers))
 
         task = asyncio.create_task(self.process_url(browser_index, url, parse_request))
         if browser_index < len(self.static_proxies_browsers):

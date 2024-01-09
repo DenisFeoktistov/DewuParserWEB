@@ -351,6 +351,7 @@ class Browser:
         url = "https://sellout.su/captcha_images/solve_image_captcha"
         response = requests.post(url, json=data, headers=headers)
         result = response.json()['result']
+        print(len(result))
 
         await self.click_captcha(result)
 
